@@ -58,6 +58,9 @@ class Handler(socketserver.BaseRequestHandler):
                 self.server.node.next = info
                 self.server.node.pred = info
                 self.server.node.update_finger()
+                self.server.node.next_alive = True
+                self.server.node.pred_alive = True
+                self.server.node.update_finger()
                 reply = "you_next：" + json.dumps(self.server.node.info)
                 socket.sendto(reply.encode('utf-8'), targe)
                 reply = "you_pred：" + json.dumps(self.server.node.info)
@@ -94,26 +97,40 @@ class Handler(socketserver.BaseRequestHandler):
         if data_array[0] == "you_finger":
             self.server.node.finger[info[0]] = [info[1], info[2], info[3]]
 
-        if data_array[0] == "get_your_next":
-            targe = (info[1], info[2])
-            reply = "you_next：" + json.dumps(self.server.node.next)
-            socket.sendto(reply.encode('utf-8'), targe)
-            reply = "you_pred：" + json.dumps(info)
-            socket.sendto(reply.encode('utf-8'), (self.server.node.next[1], self.server.node.next[2]))
-            self.server.node.next = info
+        # if data_array[0] == "get_your_next":
+        #     targe = (info[1], info[2])
+        #     reply = "you_next：" + json.dumps(self.server.node.next)
+        #     socket.sendto(reply.encode('utf-8'), targe)
+        #     reply = "you_pred：" + json.dumps(info)
+        #     socket.sendto(reply.encode('utf-8'), (self.server.node.next[1], self.server.node.next[2]))
+        #     self.server.node.next = info
 
         if data_array[0] == "is_me":
             if (self.server.node.pred[0] == info[0]):
-
                 targe = (info[1], info[2])
                 socket.sendto("update_finger：".encode('utf-8'), targe)
+            elif(info[0]<self.server.node.pred[0]):
+                print(data)
+                if (self.server.node.pred_alive):
+                    targe = (info[1], info[2])
+                    reply = "you_next：" + json.dumps(self.server.node.pred)
+                    socket.sendto(reply.encode('utf-8'), targe)
+                    targe = (self.server.node.pred[1], self.server.node.pred[2])
+                    reply = "you_pred：" + json.dumps(info)
+                    socket.sendto(reply.encode('utf-8'), targe)
+                else:
+                    self.server.node.pred = info
             else:
-                targe = (info[1], info[2])
-                reply = "you_next：" + json.dumps(self.server.node.pred)
-                socket.sendto(reply.encode('utf-8'), targe)
-                targe = (self.server.node.pred[1], self.server.node.pred[2])
-                reply = "you_pred：" + json.dumps(info)
-                socket.sendto(reply.encode('utf-8'), targe)
+                if (self.server.node.pred_alive):
+                    targe = (info[1], info[2])
+                    reply = "you_pred：" + json.dumps(self.server.node.pred)
+                    socket.sendto(reply.encode('utf-8'), targe)
+                    targe = (self.server.node.pred[1], self.server.node.pred[2])
+                    reply = "you_next：" + json.dumps(info)
+                    socket.sendto(reply.encode('utf-8'), targe)
+                    self.server.node.pred = info
+                else:
+                    self.server.node.pred = info
 
         if data_array[0] == "download":
             if (len(info) == 3):
@@ -154,7 +171,6 @@ class Handler(socketserver.BaseRequestHandler):
             print("do not find file")
 
         if data_array[0] == "get_successor":
-
             table = self.server.node.find_successor(info[0])[:]
             if (table[0] is not self.server.node.id):
                 targe = (table[1], table[2])
@@ -178,4 +194,23 @@ class Handler(socketserver.BaseRequestHandler):
                 reply = "in_successor：" + json.dumps(info)
                 socket.sendto(reply.encode('utf-8'), (self.server.node.next[1], self.server.node.next[2]))
 
+        if data_array[0] == "you_pred_alive":
+            if(self.server.node.id != info[0]):
+                self.server.node.pred_alive = True
+                self.server.node.pred_alive_count += 1
 
+        if data_array[0] == "you_next_alive":
+            if (self.server.node.id != info[0]):
+                self.server.node.next_alive = True
+                self.server.node.next_alive_count += 1
+
+        if data_array[0] == "you_pred_dead":
+            # if(self.server.node.id != info[0]):
+            self.server.node.pred_alive = False
+
+                # self.server.node.pred_alive_count += 1
+
+        if data_array[0] == "you_next_dead":
+            # if (self.server.node.id != info[0]):
+            self.server.node.next_alive = False
+                # self.server.node.next_alive_count += 1
