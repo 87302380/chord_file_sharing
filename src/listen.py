@@ -53,8 +53,8 @@ class Handler(socketserver.BaseRequestHandler):
                         reply = "join：" + json.dumps(info)
                         socket.sendto(reply.encode('utf-8'), (self.server.node.pred[1], self.server.node.pred[2]))
 
-
-            else:                               #There is only one node in the current network
+            # There is only one node in the current network
+            else:
                 self.server.node.next = info
                 self.server.node.pred = info
                 self.server.node.update_finger()
@@ -70,6 +70,7 @@ class Handler(socketserver.BaseRequestHandler):
         if data_array[0] == "update_finger" :
             self.server.node.update_finger()
 
+        # Modify the message related to the finger list
         if data_array[0] == "find_successor" :
             if (compar(self.server.node.next[0], info[1]) or self.server.node.check_max()):
                 targe = (info[2], info[3])
@@ -80,15 +81,10 @@ class Handler(socketserver.BaseRequestHandler):
             else:
                 table = self.server.node.find_successor(info[1])[:]
                 targe = (table[1], table[2])
-                # table.insert(0,info[0])
                 reply = "find_successor：" + json.dumps(info)
                 socket.sendto(reply.encode('utf-8'), targe)
 
-        if data_array[0] == "ask" :
-            targe = (info[1], info[2])
-            reply = "find_successor：" + json.dumps(self.server.node.info)
-            socket.sendto(reply.encode('utf-8'), targe)
-
+        # Operate on the node's predecessor and successor nodes
         if data_array[0] == "you_next":
             self.server.node.next = info
         if data_array[0] == "you_pred":
@@ -97,14 +93,7 @@ class Handler(socketserver.BaseRequestHandler):
         if data_array[0] == "you_finger":
             self.server.node.finger[info[0]] = [info[1], info[2], info[3]]
 
-        # if data_array[0] == "get_your_next":
-        #     targe = (info[1], info[2])
-        #     reply = "you_next：" + json.dumps(self.server.node.next)
-        #     socket.sendto(reply.encode('utf-8'), targe)
-        #     reply = "you_pred：" + json.dumps(info)
-        #     socket.sendto(reply.encode('utf-8'), (self.server.node.next[1], self.server.node.next[2]))
-        #     self.server.node.next = info
-
+        # Stability related message
         if data_array[0] == "is_me":
             if (self.server.node.pred[0] == info[0]):
                 targe = (info[1], info[2])
@@ -139,6 +128,7 @@ class Handler(socketserver.BaseRequestHandler):
                 save(file_name, file, self.server.node.dir)
                 print("get file "+ info[0])
                 self.server.node.file_list[info[2]] = info[0]
+            # Provide other parameters for download, download to the specified folder, but have not yet been implemented
             else:
                 file_name = info[0]
                 dir = info[2]
@@ -146,13 +136,14 @@ class Handler(socketserver.BaseRequestHandler):
                 save(file_name, file, dir)
                 self.server.node.file_list[info[3]] = info[0]
 
+        # The file should be saved in this node
         if data_array[0] == "is_successor":
             file_name,content = read_file(data_array[2])
             file = [file_name, content.decode("utf-8"), file_name2id(get_file_name(data_array[2]))]
             reply = "download：" + json.dumps(file)
             socket.sendto(reply.encode('utf-8'), (info[1],info[2]))
             print("file save in "+ str(info[0]))
-
+        # Check whether the file is on the node
         if data_array[0] == "in_successor":
             targe = (info[1], info[2])
             is_find = self.server.node.check_file(info[0])
@@ -174,7 +165,6 @@ class Handler(socketserver.BaseRequestHandler):
             table = self.server.node.find_successor(info[0])[:]
             if (table[0] is not self.server.node.id):
                 targe = (table[1], table[2])
-                # table.insert(0,info[0])
                 reply = "get_successor：" + json.dumps(info)+"："+data_array[2]
                 socket.sendto(reply.encode('utf-8'), targe)
             else:
@@ -187,7 +177,6 @@ class Handler(socketserver.BaseRequestHandler):
             table = self.server.node.find_successor(info[0])[:]
             if (table[0] is not self.server.node.id):
                 targe = (table[1], table[2])
-                # table.insert(0,info[0])
                 reply = "serch_successor：" + json.dumps(info)
                 socket.sendto(reply.encode('utf-8'), targe)
             else:
@@ -205,12 +194,8 @@ class Handler(socketserver.BaseRequestHandler):
                 self.server.node.next_alive_count += 1
 
         if data_array[0] == "you_pred_dead":
-            # if(self.server.node.id != info[0]):
             self.server.node.pred_alive = False
 
-                # self.server.node.pred_alive_count += 1
 
         if data_array[0] == "you_next_dead":
-            # if (self.server.node.id != info[0]):
             self.server.node.next_alive = False
-                # self.server.node.next_alive_count += 1

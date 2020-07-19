@@ -10,7 +10,6 @@ class Node:
         self.address = ip + " " + str(port)
         self.finger = dict()
         self.id = add2id(self.address)
-        # self.info = str(self.id) + " " + self.address
         self.info = [self.id, self.ip, self.port]
         self.next = self.info
         self.pred = self.info
@@ -43,6 +42,8 @@ class Node:
         self.stabilize.start()
         heart.start()
         alive.start()
+
+    # Keep the network stable
     def stabilize(self):
         while (self.stabilize_on):
             time.sleep(5)
@@ -59,20 +60,21 @@ class Node:
             msg = "you_next_dead：1"
             send_msg(self.pred[1], self.pred[2], msg)
 
-
+    # Initialize the finger table
     def init_finger(self):
         for i in range(26):
             self.finger[i] = self.info
         if self.guid_id:
             send_msg(self.guid_ip, self.guid_port, "join："+json.dumps(self.info))
 
+    # Generate resource folder
     def init_default_dir(self):
-
         dir = "./dir_"+str(self.id)+"/"
         if not os.path.exists(dir):
             os.makedirs(dir)
         self.dir = dir
 
+    # Heartbeat monitoring to determine whether the nodes before and after are still alive
     def heart(self):
         last_pred = 0
         last_next = 0
@@ -89,6 +91,8 @@ class Node:
                 if(self.next_alive_count>9999999):
                     self.next_alive_count = 0
             last_next = self.next_alive_count
+
+    # Continue to send messages that the node is still alive
     def alive(self):
         while (self.stabilize_on):
             time.sleep(5)
@@ -96,6 +100,7 @@ class Node:
             send_msg(self.next[1], self.next[2], msg)
             msg = "you_next_alive："+json.dumps(self.info)
             send_msg(self.pred[1], self.pred[2], msg)
+
     def update_finger(self):
         if (self.next[0] != self.id):
             for i in range(len(self.finger)):
@@ -116,9 +121,14 @@ class Node:
 
 
     def find_successor(self, id):
+        # The target id is greater than self id
         if ( compar(id, self.id)):
+            # The target id is between itself and its successor node
+            # or self is the node with the largest id
             if (compar(self.next[0], id) or self.check_max()):
                 return  self.info
+
+            # Find the closest node to the target id in the finger table
             else:
                 self.update_finger()
                 last_id = self.id
@@ -136,10 +146,14 @@ class Node:
                     return self.info
                 else:
                     return self.finger[i - 1]
-
+        # The target id is smaller than self id
         else:
+            # The target id is between self and self predecessor node
+            # or self is the node with the smallest id
             if(compar(id, self.server.node.pred[0]) or self.server.node.check_min()):
                 return  self.pred
+
+            # Nodes smaller than self must go around the network the closest node
             else:
                 last_id = self.id
                 isround = False
@@ -155,13 +169,13 @@ class Node:
                 else:
                     return self.finger[i-1]
 
-
+    # Check if you are the largest node
     def check_max(self):
         if (self.next[0] < self.id):
             return True
         else:
             return False
-
+    # Check if you are the smallest node
     def check_min(self):
         if (self.pred[0] > self.id):
             return True
@@ -170,42 +184,38 @@ class Node:
 
     def exit(self):
         self.stabilize_on = False
-        # msg = "you_pred：" + json.dumps(self.pred)
-        # send_msg(self.next[1], self.next[2], msg)
-        # msg = "you_pred_dead：1"
-        # send_msg(self.next[1], self.next[2], msg)
-        # msg = "you_next：" + json.dumps(self.next)
-        # send_msg(self.pred[1], self.pred[2], msg)
-        # msg = "you_next_dead：1"
-        # send_msg(self.pred[1], self.pred[2], msg)
         self.server.shutdown()
 
+    # Get the node where the file should be placed
     def get_file_successor(self):
         file_path = input("Enter file path:\n")
         fid = file_name2id(get_file_name(file_path))
+        # Exclude the situation, the current network has only one node
         if (self.next[0] is not self.id):
+            # Find the target node
             targe = self.find_successor(fid)
+            # If the target node is not self, send the information to the target node for processing
             if (targe[0]!=self.id):
                 send_msg(targe[1], targe[2], "get_successor：" + json.dumps([fid,self.ip,self.port])+"："+file_path)
+            # If the target node is itself, then download
             else:
                 msg = "is_successor：" + json.dumps(self.next)+"："+ file_path
                 send_msg(self.ip, self.port, msg)
+        #There is only one node, so put it locally
         else:
             msg = "is_successor：" + json.dumps(self.next) + "：" + file_path
             send_msg(self.ip, self.port, msg)
+
+    # Search file at which node
     def serch_file(self):
         file_name = input("Enter file name:\n")
         fid = file_name2id(get_file_name(file_name))
         targe = self.find_successor(fid)
-        # print("the file fid is:" + str(fid))
-        # print(targe)
-        # if (targe[0]!=self.id):
+        # Send a search request to the target node
         send_msg(targe[1], targe[2], "serch_successor：" + json.dumps([fid,self.ip,self.port]))
-        # else:
-        #     result = self.check_file(fid)
-        #     if (result is not None):
 
 
+    # Check if the file is local
     def check_file(self, fid):
         if(self.file_list.get(fid) is not None):
             return self.file_list.get(fid)
